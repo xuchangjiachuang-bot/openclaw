@@ -87,10 +87,13 @@ export default function IdentityPage() {
 
       const data = await response.json();
       if (data.success) {
-        router.push('/');
+        setIsInitialized(true);
+        // 显示成功提示
+        alert('身份保存成功！');
       }
     } catch (error) {
       console.error('Failed to save identity:', error);
+      alert('保存失败，请重试');
     } finally {
       setIsSaving(false);
     }
