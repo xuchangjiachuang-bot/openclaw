@@ -1,18 +1,86 @@
 // OpenClaw Identity API - 身份管理接口
 import { NextRequest, NextResponse } from 'next/server';
-import { workspaceStorage } from '@/lib/openclaw/workspace';
+import fs from 'fs';
 import type { Identity } from '@/lib/openclaw/types';
+
+const IDENTITY_FILE = '/tmp/openclaw_identity.json';
+const STATE_FILE = '/tmp/openclaw_state.json';
+
+// 默认身份配置
+const DEFAULT_IDENTITY: Identity = {
+  name: 'Claw',
+  creature: 'AI Assistant',
+  vibe: 'Friendly & Helpful',
+  emoji: '🦞',
+  avatar: ''
+};
+
+// 读取身份
+function getIdentity(): Identity {
+  try {
+    if (fs.existsSync(IDENTITY_FILE)) {
+      const data = fs.readFileSync(IDENTITY_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to read identity:', e);
+  }
+  return { ...DEFAULT_IDENTITY };
+}
+
+// 保存身份
+function saveIdentity(identity: Identity): void {
+  try {
+    fs.writeFileSync(IDENTITY_FILE, JSON.stringify(identity, null, 2));
+  } catch (e) {
+    console.error('Failed to save identity:', e);
+  }
+}
+
+// 检查是否已初始化
+function isInitialized(): boolean {
+  const identity = getIdentity();
+  return identity.name !== DEFAULT_IDENTITY.name || 
+         identity.creature !== DEFAULT_IDENTITY.creature;
+}
+
+// 读取状态
+function getState(): any {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const data = fs.readFileSync(STATE_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to read state:', e);
+  }
+  return {};
+}
+
+// 保存状态
+function saveState(state: any): void {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (e) {
+    console.error('Failed to save state:', e);
+  }
+}
 
 // GET /api/identity - 获取身份
 export async function GET() {
   try {
-    const identity = await workspaceStorage.getIdentity();
-    const isInitialized = await workspaceStorage.isInitialized();
+    const identity = getIdentity();
+    const initialized = isInitialized();
 
     return NextResponse.json({
       success: true,
       identity,
-      isInitialized
+      isInitialized: initialized
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
+      }
     });
   } catch (error) {
     return NextResponse.json(
@@ -35,16 +103,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await workspaceStorage.saveIdentity(identity);
+    saveIdentity(identity);
 
     // 更新状态
-    const state = await workspaceStorage.getState();
+    const state = getState();
     state.bootstrapSeededAt = new Date().toISOString();
-    await workspaceStorage.saveState(state);
+    state.initializedAt = new Date().toISOString();
+    saveState(state);
 
     return NextResponse.json({
       success: true,
-      identity
+      identity,
+      isInitialized: true
     });
   } catch (error) {
     return NextResponse.json(
@@ -54,26 +124,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/identity - 更新身份
-export async function PUT(request: NextRequest) {
+// DELETE /api/identity - 重置身份
+export async function DELETE() {
   try {
-    const updates: Partial<Identity> = await request.json();
-    const current = await workspaceStorage.getIdentity();
+    if (fs.existsSync(IDENTITY_FILE)) {
+      fs.unlinkSync(IDENTITY_FILE);
+    }
     
-    const updated: Identity = {
-      ...current,
-      ...updates
-    };
-
-    await workspaceStorage.saveIdentity(updated);
-
     return NextResponse.json({
       success: true,
-      identity: updated
+      message: 'Identity reset'
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update identity' },
+      { error: error instanceof Error ? error.message : 'Failed to reset identity' },
       { status: 500 }
     );
   }
