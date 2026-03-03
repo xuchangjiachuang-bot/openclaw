@@ -5,12 +5,14 @@ import path from 'path';
 export interface AppConfig {
   // LLM配置
   llm: {
-    provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi';
+    provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'openai-codex';
     model: string;
     apiKey: string;
     baseUrl?: string;
     temperature: number;
     maxTokens: number;
+    // Codex OAuth token (for openai-codex provider)
+    codexToken?: string;
   };
   
   // Gateway配置

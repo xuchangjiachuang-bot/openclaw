@@ -34,12 +34,13 @@ import {
 } from 'lucide-react';
 
 interface LLMConfig {
-  provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi';
+  provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'openai-codex';
   model: string;
   apiKey: string;
   baseUrl: string;
   temperature: number;
   maxTokens: number;
+  codexToken?: string; // For OpenAI Codex OAuth
 }
 
 interface PermissionsConfig {
@@ -62,10 +63,20 @@ interface ChatConfig {
 
 const PROVIDER_MODELS: Record<string, string[]> = {
   coze: ['doubao-seed-1-6', 'doubao-pro-32k', 'doubao-lite-4k'],
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-  anthropic: ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku'],
-  deepseek: ['deepseek-chat', 'deepseek-coder'],
-  kimi: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo', 'o1', 'o1-mini'],
+  anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku'],
+  deepseek: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
+  kimi: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+  'openai-codex': ['gpt-4o', 'gpt-4-turbo', 'o1', 'o1-mini'] // Codex订阅模型
+};
+
+const PROVIDER_NAMES: Record<string, string> = {
+  coze: 'Coze (ByteDance)',
+  openai: 'OpenAI API',
+  anthropic: 'Anthropic',
+  deepseek: 'DeepSeek',
+  kimi: 'Kimi (Moonshot)',
+  'openai-codex': 'OpenAI Code (Codex订阅)'
 };
 
 export default function SettingsPage() {
@@ -371,8 +382,9 @@ export default function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="coze">Coze (豆包)</SelectItem>
-                        <SelectItem value="openai">OpenAI</SelectItem>
+                        <SelectItem value="coze">Coze (豆包) - 推荐</SelectItem>
+                        <SelectItem value="openai">OpenAI API</SelectItem>
+                        <SelectItem value="openai-codex">OpenAI Code (Codex订阅)</SelectItem>
                         <SelectItem value="anthropic">Anthropic</SelectItem>
                         <SelectItem value="deepseek">DeepSeek</SelectItem>
                         <SelectItem value="kimi">Kimi (月之暗面)</SelectItem>
@@ -397,21 +409,57 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-slate-300">API Key</Label>
-                  <Input
-                    type="password"
-                    value={llmConfig.apiKey}
-                    onChange={(e) => setLLMConfig(prev => ({ ...prev, apiKey: e.target.value }))}
-                    placeholder={llmConfig.provider === 'coze' ? '从环境变量 COZE_API_KEY 读取' : '输入API密钥'}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                  <p className="text-xs text-slate-500">
-                    {llmConfig.provider === 'coze' 
-                      ? '如未设置，将从环境变量 COZE_API_KEY 读取' 
-                      : '请输入对应平台的API密钥'}
-                  </p>
-                </div>
+                {/* OpenAI Codex OAuth 说明 */}
+                {llmConfig.provider === 'openai-codex' && (
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                    <h4 className="font-medium text-blue-400 mb-2">OpenAI Code (Codex) 订阅</h4>
+                    <p className="text-sm text-slate-300 mb-3">
+                      使用您的ChatGPT订阅访问API，无需单独购买API额度。需要OAuth认证。
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="border-blue-500 text-blue-400 hover:bg-blue-500/20"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/auth/codex', { method: 'POST' });
+                          const data = await response.json();
+                          if (data.authUrl) {
+                            window.open(data.authUrl, '_blank');
+                          } else {
+                            alert(data.message || '请在终端运行: openclaw models auth login --provider openai-codex');
+                          }
+                        } catch {
+                          alert('请在终端运行: openclaw models auth login --provider openai-codex');
+                        }
+                      }}
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      使用ChatGPT登录
+                    </Button>
+                    <p className="text-xs text-slate-500 mt-2">
+                      或在终端运行: <code className="bg-slate-700 px-1 rounded">openclaw models auth login --provider openai-codex</code>
+                    </p>
+                  </div>
+                )}
+
+                {/* API Key 输入 */}
+                {llmConfig.provider !== 'openai-codex' && (
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">API Key</Label>
+                    <Input
+                      type="password"
+                      value={llmConfig.apiKey}
+                      onChange={(e) => setLLMConfig(prev => ({ ...prev, apiKey: e.target.value }))}
+                      placeholder={llmConfig.provider === 'coze' ? '从环境变量 COZE_API_KEY 读取' : '输入API密钥'}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                    <p className="text-xs text-slate-500">
+                      {llmConfig.provider === 'coze' 
+                        ? '如未设置，将从环境变量 COZE_API_KEY 读取' 
+                        : '请输入对应平台的API密钥'}
+                    </p>
+                  </div>
+                )}
 
                 {llmConfig.provider !== 'coze' && (
                   <div className="space-y-2">

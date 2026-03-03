@@ -29,6 +29,29 @@ export { WorkspaceStorage, workspaceStorage } from './workspace';
 export { configManager } from './config';
 export type { AppConfig } from './config';
 
+// LLM Providers
+export { 
+  LLMClientFactory, 
+  CodexOAuth,
+  PROVIDERS
+} from './llm-providers';
+export type { LLMProvider, ProviderConfig, StreamChunk, UnifiedLLMResponse } from './llm-providers';
+
+// 本地工具
+export { 
+  LOCAL_TOOLS, 
+  PermissionChecker,
+  fileReadTool,
+  fileWriteTool,
+  dirListTool,
+  fileDeleteTool,
+  fileSearchTool,
+  codeExecuteTool,
+  httpRequestTool,
+  getToolDefinitions,
+  executeToolCall
+} from './tools';
+
 // 版本信息
 export const OPENCLAW_VERSION = '1.0.0';
 export const OPENCLAW_GATEWAY_PORT = 18789;
