@@ -6,132 +6,76 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { 
-  ArrowLeft, 
-  Save,
+  ArrowLeft,
   Settings,
   Key,
-  Database,
-  Bell,
-  Shield,
-  Trash2,
-  Download,
-  Upload,
-  RefreshCw
+  Server,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [settings, setSettings] = useState({
-    apiKey: '',
-    modelProvider: 'openai',
-    enableNotifications: true,
-    enableHeartbeat: true,
-    heartbeatInterval: 30,
-    dataRetention: 90,
-    autoSave: true
+  const [config, setConfig] = useState({
+    gatewayPort: '18789',
+    llmProvider: 'coze',
+    llmModel: 'doubao-seed-1-6',
+    llmApiKey: '',
+    memoryType: 'localStorage',
+    workspacePath: './workspace'
   });
-  const [isSaving, setIsSaving] = useState(false);
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem('openclaw_settings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
+    // Load config from localStorage
+    const savedConfig = localStorage.getItem('openclaw_config');
+    if (savedConfig) {
+      try {
+        setConfig(JSON.parse(savedConfig));
+      } catch (e) {
+        console.error('Failed to load config:', e);
+      }
     }
   }, []);
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    localStorage.setItem('openclaw_settings', JSON.stringify(settings));
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setIsSaving(false);
+  const handleSave = () => {
+    localStorage.setItem('openclaw_config', JSON.stringify(config));
+    alert('配置已保存');
   };
 
-  const handleExportData = () => {
-    const data = {
-      identity: JSON.parse(localStorage.getItem('openclaw_identity') || '{}'),
-      memory: {
-        longTerm: localStorage.getItem('openclaw_memory_long_term') || '',
-        daily: JSON.parse(localStorage.getItem('openclaw_memory_daily') || '[]')
-      },
-      tasks: JSON.parse(localStorage.getItem('openclaw_heartbeat_tasks') || '[]'),
-      workspace: {
-        soul: localStorage.getItem('openclaw_workspace_soul') || '',
-        agents: localStorage.getItem('openclaw_workspace_agents') || '',
-        tools: localStorage.getItem('openclaw_workspace_tools') || '',
-        user: localStorage.getItem('openclaw_workspace_user') || ''
-      },
-      chatHistory: JSON.parse(localStorage.getItem('openclaw_chat_history') || '[]'),
-      settings: settings
-    };
+  const handleTestConnection = async () => {
+    setTestStatus('testing');
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: 'Hello' }],
+          stream: false
+        })
+      });
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `openclaw-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string);
-        
-        if (data.identity) localStorage.setItem('openclaw_identity', JSON.stringify(data.identity));
-        if (data.memory) {
-          if (data.memory.longTerm) localStorage.setItem('openclaw_memory_long_term', data.memory.longTerm);
-          if (data.memory.daily) localStorage.setItem('openclaw_memory_daily', JSON.stringify(data.memory.daily));
-        }
-        if (data.tasks) localStorage.setItem('openclaw_heartbeat_tasks', JSON.stringify(data.tasks));
-        if (data.workspace) {
-          Object.entries(data.workspace).forEach(([key, value]) => {
-            localStorage.setItem(`openclaw_workspace_${key}`, value as string);
-          });
-        }
-        if (data.chatHistory) localStorage.setItem('openclaw_chat_history', JSON.stringify(data.chatHistory));
-        if (data.settings) {
-          setSettings(data.settings);
-          localStorage.setItem('openclaw_settings', JSON.stringify(data.settings));
-        }
-
-        alert('数据导入成功！页面将刷新。');
-        window.location.reload();
-      } catch (error) {
-        alert('导入失败：无效的备份文件');
+      if (response.ok) {
+        setTestStatus('success');
+      } else {
+        setTestStatus('error');
       }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleClearData = () => {
-    if (confirm('确定要清除所有数据吗？此操作不可恢复！')) {
-      localStorage.clear();
-      alert('数据已清除，页面将刷新。');
-      window.location.reload();
+    } catch (error) {
+      setTestStatus('error');
     }
   };
 
   const handleReset = () => {
-    if (confirm('确定要重置所有设置吗？')) {
-      localStorage.removeItem('openclaw_settings');
-      setSettings({
-        apiKey: '',
-        modelProvider: 'openai',
-        enableNotifications: true,
-        enableHeartbeat: true,
-        heartbeatInterval: 30,
-        dataRetention: 90,
-        autoSave: true
-      });
-    }
+    if (!confirm('确定重置所有设置?')) return;
+    localStorage.removeItem('openclaw_config');
+    localStorage.removeItem('openclaw_chat_history');
+    localStorage.removeItem('openclaw_identity');
+    localStorage.removeItem('openclaw_user');
+    localStorage.removeItem('openclaw_message_count');
+    router.push('/');
   };
 
   return (
@@ -149,208 +93,171 @@ export default function SettingsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Settings className="w-6 h-6 text-slate-400" />
+              <Settings className="w-6 h-6 text-slate-500" />
               系统设置
             </h1>
-            <p className="text-slate-400">配置OpenClaw的核心参数</p>
+            <p className="text-slate-400">配置OpenClaw网关和运行参数</p>
           </div>
         </div>
 
-        <div className="space-y-6">
-          {/* API Configuration */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Key className="w-5 h-5 text-orange-500" />
-                API 配置
-              </CardTitle>
-              <CardDescription>配置AI模型的API密钥和提供商</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-300">API Key</Label>
-                  <Input
-                    type="password"
-                    placeholder="sk-..."
-                    value={settings.apiKey}
-                    onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-300">模型提供商</Label>
-                  <select
-                    value={settings.modelProvider}
-                    onChange={(e) => setSettings({ ...settings, modelProvider: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white"
-                  >
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                    <option value="google">Google AI</option>
-                    <option value="local">本地模型</option>
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notifications */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Bell className="w-5 h-5 text-blue-500" />
-                通知设置
-              </CardTitle>
-              <CardDescription>管理系统的通知和提醒</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white">启用通知</p>
-                  <p className="text-sm text-slate-400">接收系统和任务通知</p>
-                </div>
-                <Switch
-                  checked={settings.enableNotifications}
-                  onCheckedChange={(checked) => setSettings({ ...settings, enableNotifications: checked })}
+        {/* Gateway Config */}
+        <Card className="bg-slate-800/50 border-slate-700 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Server className="w-5 h-5 text-blue-500" />
+              网关配置
+            </CardTitle>
+            <CardDescription>
+              配置Gateway监听端口和服务参数
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-slate-300">Gateway 端口</Label>
+                <Input
+                  value={config.gatewayPort}
+                  onChange={(e) => setConfig(prev => ({ ...prev, gatewayPort: e.target.value }))}
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white">启用心跳检查</p>
-                  <p className="text-sm text-slate-400">定期执行主动任务</p>
-                </div>
-                <Switch
-                  checked={settings.enableHeartbeat}
-                  onCheckedChange={(checked) => setSettings({ ...settings, enableHeartbeat: checked })}
+              <div className="space-y-2">
+                <Label className="text-slate-300">内存类型</Label>
+                <Input
+                  value={config.memoryType}
+                  disabled
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-300">心跳间隔（分钟）</Label>
-                  <Input
-                    type="number"
-                    min={5}
-                    value={settings.heartbeatInterval}
-                    onChange={(e) => setSettings({ ...settings, heartbeatInterval: parseInt(e.target.value) || 30 })}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-slate-300">数据保留天数</Label>
-                  <Input
-                    type="number"
-                    min={7}
-                    value={settings.dataRetention}
-                    onChange={(e) => setSettings({ ...settings, dataRetention: parseInt(e.target.value) || 90 })}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">工作空间路径</Label>
+              <Input
+                value={config.workspacePath}
+                disabled
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Data Management */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Database className="w-5 h-5 text-purple-500" />
-                数据管理
-              </CardTitle>
-              <CardDescription>导出、导入或清除数据</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <Button
-                  variant="outline"
-                  className="border-slate-600 text-slate-300"
-                  onClick={handleExportData}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  导出数据
-                </Button>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleImportData}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                  <Button
-                    variant="outline"
-                    className="w-full border-slate-600 text-slate-300"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    导入数据
-                  </Button>
-                </div>
-                <Button
-                  variant="outline"
-                  className="border-red-600 text-red-400 hover:bg-red-600/10"
-                  onClick={handleClearData}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  清除数据
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Privacy & Security */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Shield className="w-5 h-5 text-green-500" />
-                隐私与安全
-              </CardTitle>
-              <CardDescription>数据隐私和安全设置</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white">自动保存</p>
-                  <p className="text-sm text-slate-400">自动保存对话和记忆</p>
-                </div>
-                <Switch
-                  checked={settings.autoSave}
-                  onCheckedChange={(checked) => setSettings({ ...settings, autoSave: checked })}
+        {/* LLM Config */}
+        <Card className="bg-slate-800/50 border-slate-700 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Key className="w-5 h-5 text-yellow-500" />
+              LLM 配置
+            </CardTitle>
+            <CardDescription>
+              配置大语言模型提供商和API密钥
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-slate-300">提供商</Label>
+                <Input
+                  value={config.llmProvider}
+                  disabled
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
-              <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600">
-                <p className="text-sm text-slate-400">
-                  <Shield className="w-4 h-4 inline mr-2 text-green-500" />
-                  OpenClaw 采用本地优先设计。所有数据都存储在你的设备上，不会上传到云端服务器。
-                  这确保了你的隐私和数据安全。
-                </p>
+              <div className="space-y-2">
+                <Label className="text-slate-300">模型</Label>
+                <Input
+                  value={config.llmModel}
+                  disabled
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">API Key</Label>
+              <Input
+                type="password"
+                value={config.llmApiKey}
+                onChange={(e) => setConfig(prev => ({ ...prev, llmApiKey: e.target.value }))}
+                placeholder="从环境变量自动读取"
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+              <p className="text-xs text-slate-500">
+                如未设置，将从环境变量 COZE_API_KEY 读取
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button onClick={handleTestConnection} disabled={testStatus === 'testing'}>
+                {testStatus === 'testing' ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    测试中...
+                  </>
+                ) : (
+                  '测试连接'
+                )}
+              </Button>
+              {testStatus === 'success' && (
+                <div className="flex items-center gap-2 text-green-500">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm">连接成功</span>
+                </div>
+              )}
+              {testStatus === 'error' && (
+                <div className="flex items-center gap-2 text-red-500">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">连接失败</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Actions */}
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="border-slate-600 text-slate-300"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              重置设置
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {isSaving ? '保存中...' : '保存设置'}
-            </Button>
-          </div>
-        </div>
+        {/* System Status */}
+        <Card className="bg-slate-800/50 border-slate-700 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white">系统状态</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="p-4 rounded-lg bg-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-slate-400">Gateway</span>
+                </div>
+                <p className="font-semibold text-white">运行中</p>
+              </div>
+              <div className="p-4 rounded-lg bg-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-slate-400">Agent</span>
+                </div>
+                <p className="font-semibold text-white">就绪</p>
+              </div>
+              <div className="p-4 rounded-lg bg-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-slate-400">Memory</span>
+                </div>
+                <p className="font-semibold text-white">正常</p>
+              </div>
+              <div className="p-4 rounded-lg bg-slate-700/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                  <span className="text-sm text-slate-400">LLM</span>
+                </div>
+                <p className="font-semibold text-white">已配置</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Footer */}
-        <div className="mt-12 text-center text-slate-500 text-sm">
-          <p>OpenClaw v1.0.0 • 本地优先的AI助手</p>
-          <p className="mt-1">开源项目 • MIT License</p>
+        {/* Actions */}
+        <div className="flex gap-4">
+          <Button onClick={handleSave} className="flex-1">
+            保存设置
+          </Button>
+          <Button variant="destructive" onClick={handleReset}>
+            重置所有数据
+          </Button>
         </div>
       </div>
     </div>

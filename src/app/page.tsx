@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,11 +14,12 @@ import {
   Settings, 
   Zap,
   FileText,
-  Clock,
   User,
   Sparkles,
   ArrowRight,
-  Activity
+  Activity,
+  Terminal,
+  Clock
 } from 'lucide-react';
 
 export default function Home() {
@@ -31,14 +32,37 @@ export default function Home() {
     avatar: ''
   });
   const [isInitialized, setIsInitialized] = useState(false);
+  const [stats, setStats] = useState({
+    memories: 0,
+    tasks: 0,
+    skills: 6,
+    messages: 0
+  });
 
   useEffect(() => {
-    // Check if identity exists
-    const savedIdentity = localStorage.getItem('openclaw_identity');
-    if (savedIdentity) {
-      setIdentity(JSON.parse(savedIdentity));
-      setIsInitialized(true);
-    }
+    // Load identity from API
+    fetch('/api/identity')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setIdentity(data.identity);
+          setIsInitialized(data.isInitialized);
+        }
+      });
+
+    // Load stats
+    Promise.all([
+      fetch('/api/memory?action=all').then(r => r.json()),
+      fetch('/api/heartbeat').then(r => r.json()),
+      fetch('/api/skills?action=enabled').then(r => r.json())
+    ]).then(([memories, tasks, skills]) => {
+      setStats({
+        memories: memories.memories?.length || 0,
+        tasks: tasks.tasks?.filter((t: any) => t.enabled).length || 0,
+        skills: skills.skills?.length || 6,
+        messages: parseInt(localStorage.getItem('openclaw_message_count') || '0')
+      });
+    });
   }, []);
 
   const handleStartSetup = () => {
@@ -70,17 +94,19 @@ export default function Home() {
     },
     {
       icon: MessageSquare,
-      title: '多平台接入',
-      description: '支持Web、WhatsApp、Telegram等平台',
+      title: '流式对话',
+      description: '实时流式响应，打字机效果展示',
       color: 'text-green-500'
     }
   ];
 
-  const stats = [
-    { label: '记忆条目', value: '0', icon: Brain },
-    { label: '心跳任务', value: '0', icon: Heart },
-    { label: '技能插件', value: '0', icon: Sparkles },
-    { label: '今日对话', value: '0', icon: MessageSquare }
+  const quickActions = [
+    { label: '身份设置', icon: User, path: '/identity', color: 'blue' },
+    { label: '工作空间', icon: FileText, path: '/workspace', color: 'purple' },
+    { label: '技能插件', icon: Sparkles, path: '/skills', color: 'green' },
+    { label: '心跳任务', icon: Activity, path: '/heartbeat', color: 'yellow' },
+    { label: '记忆管理', icon: Brain, path: '/memory', color: 'pink' },
+    { label: '系统设置', icon: Settings, path: '/settings', color: 'gray' }
   ];
 
   if (!isInitialized) {
@@ -96,7 +122,7 @@ export default function Home() {
                 欢迎来到 OpenClaw
               </CardTitle>
               <CardDescription className="text-slate-400 text-lg">
-                你的个人AI助手，本地优先，真正能干活的数字员工
+                本地优先的AI助手，真正能干活的数字员工
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -153,13 +179,18 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm text-slate-400">在线</span>
+            <span className="text-sm text-slate-400">Gateway: 18789</span>
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
-          {stats.map((stat, index) => (
+          {[
+            { label: '记忆条目', value: stats.memories, icon: Brain, color: 'purple' },
+            { label: '活跃任务', value: stats.tasks, icon: Activity, color: 'yellow' },
+            { label: '启用技能', value: stats.skills, icon: Sparkles, color: 'green' },
+            { label: '今日对话', value: stats.messages, icon: MessageSquare, color: 'blue' }
+          ].map((stat, index) => (
             <Card key={index} className="bg-slate-800/50 border-slate-700">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -167,7 +198,7 @@ export default function Home() {
                     <p className="text-sm text-slate-400 mb-1">{stat.label}</p>
                     <p className="text-2xl font-bold text-white">{stat.value}</p>
                   </div>
-                  <stat.icon className="w-8 h-8 text-slate-600" />
+                  <stat.icon className={`w-8 h-8 text-${stat.color}-500`} />
                 </div>
               </CardContent>
             </Card>
@@ -175,9 +206,9 @@ export default function Home() {
         </div>
 
         {/* Main Actions */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-6 mb-8">
           <Card 
-            className="bg-slate-800/50 border-slate-700 hover:border-orange-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-orange-500/10"
+            className="bg-slate-800/50 border-slate-700 hover:border-blue-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10"
             onClick={handleGoToChat}
           >
             <CardHeader>
@@ -186,7 +217,7 @@ export default function Home() {
               </div>
               <CardTitle className="text-white">开始对话</CardTitle>
               <CardDescription>
-                与你的AI助手进行对话，让它帮你处理任务
+                与你的AI助手进行流式对话交互
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -241,43 +272,55 @@ export default function Home() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-white mb-4">快速操作</h2>
-          <div className="grid grid-cols-4 gap-4">
-            <Button 
-              variant="outline" 
-              className="h-auto py-4 flex flex-col gap-2"
-              onClick={() => router.push('/identity')}
-            >
-              <User className="w-5 h-5" />
-              <span>身份设置</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              className="h-auto py-4 flex flex-col gap-2"
-              onClick={() => router.push('/workspace')}
-            >
-              <FileText className="w-5 h-5" />
-              <span>工作空间</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              className="h-auto py-4 flex flex-col gap-2"
-              onClick={() => router.push('/skills')}
-            >
-              <Sparkles className="w-5 h-5" />
-              <span>技能插件</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              className="h-auto py-4 flex flex-col gap-2"
-              onClick={() => router.push('/settings')}
-            >
-              <Settings className="w-5 h-5" />
-              <span>系统设置</span>
-            </Button>
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Terminal className="w-5 h-5 text-slate-400" />
+            快速操作
+          </h2>
+          <div className="grid grid-cols-6 gap-4">
+            {quickActions.map((action, index) => (
+              <Button 
+                key={index}
+                variant="outline" 
+                className="h-auto py-4 flex flex-col gap-2 border-slate-600 hover:border-slate-500"
+                onClick={() => router.push(action.path)}
+              >
+                <action.icon className={`w-5 h-5 text-${action.color}-500`} />
+                <span>{action.label}</span>
+              </Button>
+            ))}
           </div>
         </div>
+
+        {/* System Status */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <Activity className="w-4 h-4 text-green-500" />
+              系统状态
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-slate-400">Gateway: 运行中</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-slate-400">Agent: 就绪</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-slate-400">Memory: 正常</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-slate-400">LLM: 已连接</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

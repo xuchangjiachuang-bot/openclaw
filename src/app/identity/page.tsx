@@ -6,73 +6,108 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { 
-  ArrowLeft, 
-  Save, 
+  ArrowLeft,
+  Save,
+  User,
   Sparkles,
-  Bot,
-  Smile,
-  Image as ImageIcon
+  Bot
 } from 'lucide-react';
 
-const creatureOptions = [
-  { value: 'AI Assistant', label: 'AI 助手', emoji: '🤖' },
-  { value: 'Robot', label: '机器人', emoji: '🤖' },
-  { value: 'Ghost', label: '幽灵', emoji: '👻' },
-  { value: 'Spirit', label: '精灵', emoji: '✨' },
-  { value: 'Dragon', label: '龙', emoji: '🐉' },
-  { value: 'Cat', label: '猫咪', emoji: '🐱' },
-  { value: 'Fox', label: '狐狸', emoji: '🦊' },
-  { value: 'Lobster', label: '龙虾', emoji: '🦞' }
+const CREATURE_OPTIONS = [
+  { value: 'AI Assistant', label: '🤖 AI助手', emoji: '🤖' },
+  { value: 'Cat', label: '🐱 猫咪', emoji: '🐱' },
+  { value: 'Dragon', label: '🐉 龙', emoji: '🐉' },
+  { value: 'Fox', label: '🦊 狐狸', emoji: '🦊' },
+  { value: 'Lobster', label: '🦞 龙虾', emoji: '🦞' },
+  { value: 'Owl', label: '🦉 猫头鹰', emoji: '🦉' },
+  { value: 'Robot', label: '🤖 机器人', emoji: '🤖' },
+  { value: 'Wizard', label: '🧙‍♂️ 法师', emoji: '🧙‍♂️' },
+  { value: 'Custom', label: '🎨 自定义', emoji: '✨' }
 ];
 
-const vibeOptions = [
-  { value: 'Friendly & Helpful', label: '友好且乐于助人' },
-  { value: 'Professional & Efficient', label: '专业且高效' },
-  { value: 'Witty & Humorous', label: '机智且幽默' },
-  { value: 'Calm & Wise', label: '冷静且睿智' },
-  { value: 'Energetic & Enthusiastic', label: '充满活力和热情' },
-  { value: 'Minimal & Direct', label: '简洁且直接' }
+const VIBE_OPTIONS = [
+  'Friendly & Helpful',
+  'Professional & Efficient',
+  'Creative & Playful',
+  'Calm & Wise',
+  'Energetic & Enthusiastic',
+  'Mysterious & Deep',
+  'Humorous & Witty'
 ];
 
 export default function IdentityPage() {
   const router = useRouter();
   const [identity, setIdentity] = useState({
     name: '',
-    creature: 'Lobster',
+    creature: 'AI Assistant',
     vibe: 'Friendly & Helpful',
-    emoji: '🦞',
-    avatar: ''
+    emoji: '🤖',
+    avatar: '',
+    bio: ''
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const savedIdentity = localStorage.getItem('openclaw_identity');
-    if (savedIdentity) {
-      setIdentity(JSON.parse(savedIdentity));
-    }
+    // Load current identity
+    fetch('/api/identity')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.identity) {
+          setIdentity(data.identity);
+          setIsInitialized(data.isInitialized);
+        }
+      });
   }, []);
 
   const handleSave = async () => {
+    if (!identity.name.trim()) {
+      alert('请输入名字');
+      return;
+    }
+
     setIsSaving(true);
-    // Save to localStorage (simulating file system storage)
-    localStorage.setItem('openclaw_identity', JSON.stringify(identity));
-    
-    // Simulate saving delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setIsSaving(false);
-    router.push('/');
+    try {
+      const response = await fetch('/api/identity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(identity)
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('Failed to save identity:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const selectedCreature = creatureOptions.find(c => c.value === identity.creature);
+  const handleCreatureChange = (value: string) => {
+    const option = CREATURE_OPTIONS.find(o => o.value === value);
+    setIdentity(prev => ({
+      ...prev,
+      creature: value,
+      emoji: option?.emoji || '✨'
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Button 
@@ -84,183 +119,132 @@ export default function IdentityPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-white">AI 身份配置</h1>
-            <p className="text-slate-400">定义你的AI助手是谁</p>
+            <h1 className="text-2xl font-bold text-white">AI 身份设置</h1>
+            <p className="text-slate-400">定制你的AI助手的个性和外观</p>
           </div>
         </div>
 
-        {/* Preview Card */}
-        <Card className="bg-slate-800/50 border-slate-700 mb-6">
+        <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-orange-500" />
-              预览
+              <User className="w-5 h-5" />
+              基本信息
             </CardTitle>
+            <CardDescription>
+              定义AI的核心身份特征
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-6">
-              <Avatar className="w-20 h-20 border-2 border-orange-500">
+          <CardContent className="space-y-6">
+            {/* Avatar Preview */}
+            <div className="flex justify-center">
+              <Avatar className="w-24 h-24 border-4 border-orange-500 shadow-lg shadow-orange-500/20">
                 <AvatarImage src={identity.avatar} />
-                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-3xl">
-                  {identity.emoji || '🦞'}
+                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-4xl">
+                  {identity.emoji}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  {identity.name || '未命名'}
-                  {identity.creature && (
-                    <Badge variant="secondary" className="bg-slate-700">
-                      {selectedCreature?.emoji} {selectedCreature?.label}
-                    </Badge>
-                  )}
-                </h2>
-                <p className="text-slate-400">{identity.vibe}</p>
-              </div>
             </div>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-slate-300">名字</Label>
+              <Input
+                id="name"
+                placeholder="给AI起个名字..."
+                value={identity.name}
+                onChange={(e) => setIdentity(prev => ({ ...prev, name: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+
+            {/* Creature */}
+            <div className="space-y-2">
+              <Label className="text-slate-300">生物类型</Label>
+              <Select value={identity.creature} onValueChange={handleCreatureChange}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectValue placeholder="选择生物类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CREATURE_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Vibe */}
+            <div className="space-y-2">
+              <Label className="text-slate-300">性格氛围</Label>
+              <Select value={identity.vibe} onValueChange={(v) => setIdentity(prev => ({ ...prev, vibe: v }))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectValue placeholder="选择性格氛围" />
+                </SelectTrigger>
+                <SelectContent>
+                  {VIBE_OPTIONS.map(vibe => (
+                    <SelectItem key={vibe} value={vibe}>
+                      {vibe}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Bio */}
+            <div className="space-y-2">
+              <Label htmlFor="bio" className="text-slate-300">简介</Label>
+              <Textarea
+                id="bio"
+                placeholder="AI的简短介绍..."
+                value={identity.bio}
+                onChange={(e) => setIdentity(prev => ({ ...prev, bio: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white min-h-[80px]"
+              />
+            </div>
+
+            {/* Avatar URL */}
+            <div className="space-y-2">
+              <Label htmlFor="avatar" className="text-slate-300">头像URL（可选）</Label>
+              <Input
+                id="avatar"
+                placeholder="https://..."
+                value={identity.avatar}
+                onChange={(e) => setIdentity(prev => ({ ...prev, avatar: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+
+            {/* Save Button */}
+            <Button 
+              onClick={handleSave}
+              disabled={isSaving || !identity.name.trim()}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
+            >
+              {isSaving ? (
+                '保存中...'
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  保存身份
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Configuration Form */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* Basic Info */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Bot className="w-5 h-5 text-blue-500" />
-                基本信息
-              </CardTitle>
-              <CardDescription>给你的AI起个名字，选择它的类型</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-slate-300">名字</Label>
-                <Input
-                  id="name"
-                  placeholder="例如：Claw, Nova, Max..."
-                  value={identity.name}
-                  onChange={(e) => setIdentity({ ...identity, name: e.target.value })}
-                  className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-slate-300">生物类型</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {creatureOptions.map((option) => (
-                    <Button
-                      key={option.value}
-                      variant={identity.creature === option.value ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setIdentity({ 
-                        ...identity, 
-                        creature: option.value,
-                        emoji: option.emoji 
-                      })}
-                      className={identity.creature === option.value 
-                        ? "bg-orange-500 hover:bg-orange-600" 
-                        : "border-slate-600 text-slate-300"
-                      }
-                    >
-                      <span className="mr-1">{option.emoji}</span>
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Personality */}
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Smile className="w-5 h-5 text-purple-500" />
-                性格风格
-              </CardTitle>
-              <CardDescription>你的AI助手会是什么风格</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-slate-300">对话风格</Label>
-                <div className="space-y-2">
-                  {vibeOptions.map((option) => (
-                    <Button
-                      key={option.value}
-                      variant={identity.vibe === option.value ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setIdentity({ ...identity, vibe: option.value })}
-                      className={`w-full justify-start ${
-                        identity.vibe === option.value 
-                          ? "bg-purple-500 hover:bg-purple-600" 
-                          : "border-slate-600 text-slate-300"
-                      }`}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Avatar */}
-          <Card className="bg-slate-800/50 border-slate-700 col-span-2">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-green-500" />
-                头像设置
-              </CardTitle>
-              <CardDescription>自定义AI的头像图片</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-start gap-6">
-                <Avatar className="w-24 h-24 border-2 border-slate-600">
-                  <AvatarImage src={identity.avatar} />
-                  <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-4xl">
-                    {identity.emoji || '🦞'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="avatar" className="text-slate-300">头像URL</Label>
-                  <Input
-                    id="avatar"
-                    placeholder="输入图片URL或留空使用emoji"
-                    value={identity.avatar}
-                    onChange={(e) => setIdentity({ ...identity, avatar: e.target.value })}
-                    className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                  />
-                  <p className="text-xs text-slate-500">
-                    建议使用正方形图片，支持 jpg, png, gif 格式
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Save Button */}
-        <div className="mt-6 flex justify-end gap-4">
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/')}
-            className="border-slate-600 text-slate-300"
-          >
-            取消
-          </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
-          >
-            {isSaving ? (
-              <>保存中...</>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                保存身份
-              </>
-            )}
-          </Button>
+        {/* Additional Info */}
+        <div className="mt-6 p-4 rounded-lg bg-slate-800/30 border border-slate-700">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-yellow-500 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-white mb-1">身份说明</h3>
+              <p className="text-sm text-slate-400">
+                AI的身份信息将用于构建系统提示词，影响AI的回复风格和行为。
+                名字和生物类型会在对话中体现。
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

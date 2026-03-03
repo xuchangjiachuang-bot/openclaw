@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -12,10 +12,12 @@ import {
   Send,
   Bot,
   User,
-  Sparkles,
   MoreVertical,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Terminal,
+  Clock,
+  Zap
 } from 'lucide-react';
 
 interface Message {
@@ -36,34 +38,49 @@ export default function ChatPage() {
   });
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const savedIdentity = localStorage.getItem('openclaw_identity');
-    if (savedIdentity) {
-      setIdentity(JSON.parse(savedIdentity));
-    }
-    
-    // Load chat history
-    const savedMessages = localStorage.getItem('openclaw_chat_history');
-    if (savedMessages) {
-      setMessages(JSON.parse(savedMessages));
+    // Load identity
+    fetch('/api/identity')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.identity) {
+          setIdentity(data.identity);
+        }
+      });
+
+    // Load chat history from localStorage
+    const savedHistory = localStorage.getItem('openclaw_chat_history');
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        setMessages(parsed.map((m: any) => ({
+          ...m,
+          timestamp: new Date(m.timestamp)
+        })));
+      } catch (e) {
+        console.error('Failed to load chat history:', e);
+      }
     }
   }, []);
 
   useEffect(() => {
     // Save chat history
     localStorage.setItem('openclaw_chat_history', JSON.stringify(messages));
+    localStorage.setItem('openclaw_message_count', messages.length.toString());
     // Scroll to bottom
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isStreaming) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       role: 'user',
       content: input,
       timestamp: new Date()
@@ -71,37 +88,96 @@ export default function ChatPage() {
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
-    setIsTyping(true);
+    setIsStreaming(true);
+    setStreamingContent('');
 
-    // Simulate AI response
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+    try {
+      // 准备消息历史
+      const chatHistory = messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
 
-    const aiResponse = generateAIResponse(input, identity);
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: aiResponse,
-      timestamp: new Date()
-    };
+      // 调用流式API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...chatHistory, { role: 'user', content: input }],
+          stream: true
+        })
+      });
 
-    setMessages(prev => [...prev, assistantMessage]);
-    setIsTyping(false);
-  };
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
 
-  const generateAIResponse = (userInput: string, identity: { name: string; vibe: string }) => {
-    const responses = [
-      `你好！我是${identity.name}，很高兴为你服务。有什么我可以帮你的吗？`,
-      `我收到了你的消息："${userInput}"。作为你的AI助手，我会尽力帮助你。`,
-      `这是一个很好的问题！让我想想...根据我的理解，我可以这样帮助你。`,
-      `我在这里随时准备协助你。你刚才提到了重要的事情，让我来处理一下。`,
-      `作为你的数字助手，我建议我们可以这样处理这个任务。`
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  fullContent += parsed.content;
+                  setStreamingContent(fullContent);
+                }
+              } catch (e) {
+                // Skip invalid JSON
+              }
+            }
+          }
+        }
+      }
+
+      // 添加助手消息
+      const assistantMessage: Message = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: fullContent,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+      setStreamingContent('');
+    } catch (error) {
+      console.error('Chat error:', error);
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: '抱歉，发生了错误。请检查API配置后重试。',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsStreaming(false);
+      inputRef.current?.focus();
+    }
   };
 
   const handleClearHistory = () => {
     setMessages([]);
     localStorage.removeItem('openclaw_chat_history');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   const formatTime = (date: Date) => {
@@ -110,6 +186,13 @@ export default function ChatPage() {
       minute: '2-digit' 
     });
   };
+
+  const suggestions = [
+    '今天天气如何？',
+    '帮我规划一下日程',
+    '最近有什么新闻？',
+    '讲个笑话吧'
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
@@ -136,7 +219,7 @@ export default function ChatPage() {
                 <h1 className="text-lg font-semibold text-white">{identity.name}</h1>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-xs text-slate-400">在线</span>
+                  <span className="text-xs text-slate-400">在线 · 流式对话</span>
                 </div>
               </div>
             </div>
@@ -147,6 +230,7 @@ export default function ChatPage() {
               size="icon"
               onClick={handleClearHistory}
               className="text-slate-400 hover:text-white"
+              title="清空对话"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -164,7 +248,7 @@ export default function ChatPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
-          {messages.length === 0 && (
+          {messages.length === 0 && !isStreaming && (
             <div className="text-center py-20">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-4xl shadow-lg shadow-orange-500/20">
                 {identity.emoji}
@@ -176,7 +260,7 @@ export default function ChatPage() {
                 {identity.vibe}，随时准备为你服务
               </p>
               <div className="flex flex-wrap justify-center gap-2">
-                {['今天天气如何？', '帮我规划一下日程', '最近有什么新闻？', '讲个笑话吧'].map((suggestion, index) => (
+                {suggestions.map((suggestion, index) => (
                   <Button
                     key={index}
                     variant="outline"
@@ -226,7 +310,25 @@ export default function ChatPage() {
             </div>
           ))}
 
-          {isTyping && (
+          {/* Streaming content */}
+          {isStreaming && streamingContent && (
+            <div className="flex items-start gap-3">
+              <Avatar className="w-8 h-8 border border-orange-500">
+                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-sm">
+                  {identity.emoji}
+                </AvatarFallback>
+              </Avatar>
+              <div className="max-w-[70%]">
+                <div className="rounded-2xl px-4 py-3 bg-slate-700 text-slate-200">
+                  <p className="text-sm whitespace-pre-wrap">{streamingContent}</p>
+                  <span className="inline-block w-2 h-4 bg-orange-500 animate-pulse ml-1" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Loading indicator */}
+          {isStreaming && !streamingContent && (
             <div className="flex items-start gap-3">
               <Avatar className="w-8 h-8 border border-orange-500">
                 <AvatarFallback className="bg-gradient-to-br from-orange-500 to-red-600 text-sm">
@@ -252,19 +354,35 @@ export default function ChatPage() {
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex gap-3">
             <Input
+              ref={inputRef}
               placeholder="输入消息..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyPress={handleKeyPress}
+              disabled={isStreaming}
               className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
             />
             <Button 
               onClick={handleSend}
-              disabled={!input.trim() || isTyping}
+              disabled={!input.trim() || isStreaming}
               className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
             >
-              <Send className="w-4 h-4" />
+              {isStreaming ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </Button>
+          </div>
+          <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-3 h-3" />
+              <span>Gateway: 18789</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Zap className="w-3 h-3 text-yellow-500" />
+              <span>流式响应</span>
+            </div>
           </div>
         </div>
       </div>
