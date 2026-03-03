@@ -52,6 +52,17 @@ export {
   executeToolCall
 } from './tools';
 
+// Gateway客户端
+export { GatewayClient, useGateway } from './gateway-client';
+export type { 
+  GatewayConfig, 
+  ProtocolMessage, 
+  MessageHandler as WsMessageHandler,
+  EventHandler,
+  ConnectionHandler,
+  UseGatewayOptions
+} from './gateway-client';
+
 // 版本信息
 export const OPENCLAW_VERSION = '1.0.0';
 export const OPENCLAW_GATEWAY_PORT = 18789;
