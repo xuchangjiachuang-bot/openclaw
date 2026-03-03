@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,10 @@ import {
   ArrowRight,
   Activity,
   Terminal,
-  Clock
+  Clock,
+  Key,
+  Shield,
+  ChevronRight
 } from 'lucide-react';
 
 export default function Home() {
@@ -100,13 +103,36 @@ export default function Home() {
     }
   ];
 
-  const quickActions = [
-    { label: '身份设置', icon: User, path: '/identity', color: 'blue' },
-    { label: '工作空间', icon: FileText, path: '/workspace', color: 'purple' },
-    { label: '技能插件', icon: Sparkles, path: '/skills', color: 'green' },
-    { label: '心跳任务', icon: Activity, path: '/heartbeat', color: 'yellow' },
-    { label: '记忆管理', icon: Brain, path: '/memory', color: 'pink' },
-    { label: '系统设置', icon: Settings, path: '/settings', color: 'gray' }
+  // 主要导航 - 最常用的功能
+  const mainNavItems = [
+    { 
+      label: '开始对话', 
+      description: '与AI助手实时聊天',
+      icon: MessageSquare, 
+      path: '/chat', 
+      color: 'bg-gradient-to-r from-blue-500 to-cyan-500',
+      textColor: 'text-white'
+    },
+    { 
+      label: '系统设置', 
+      description: '模型API、权限、聊天配置',
+      icon: Settings, 
+      path: '/settings', 
+      color: 'bg-gradient-to-r from-orange-500 to-red-500',
+      textColor: 'text-white'
+    },
+  ];
+
+  // 配置导航
+  const configNavItems = [
+    { label: '身份定制', icon: User, path: '/identity', color: 'text-blue-500' },
+    { label: '记忆管理', icon: Brain, path: '/memory', color: 'text-purple-500' },
+    { label: '技能插件', icon: Sparkles, path: '/skills', color: 'text-green-500' },
+    { label: '心跳任务', icon: Activity, path: '/heartbeat', color: 'text-yellow-500' },
+    { label: '工作空间', icon: FileText, path: '/workspace', color: 'text-pink-500' },
+    { label: '模型API', icon: Key, path: '/settings?tab=llm', color: 'text-orange-500' },
+    { label: '权限配置', icon: Shield, path: '/settings?tab=permissions', color: 'text-red-500' },
+    { label: '聊天配置', icon: MessageSquare, path: '/settings?tab=chat', color: 'text-cyan-500' },
   ];
 
   if (!isInitialized) {
@@ -183,6 +209,32 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Main Navigation - 最显眼的位置 */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {mainNavItems.map((item, index) => (
+            <Card 
+              key={index}
+              className={`${item.color} cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02]`}
+              onClick={() => router.push(item.path)}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center">
+                      <item.icon className={`w-6 h-6 ${item.textColor}`} />
+                    </div>
+                    <div>
+                      <h2 className={`text-xl font-bold ${item.textColor}`}>{item.label}</h2>
+                      <p className={`text-sm ${item.textColor} opacity-80`}>{item.description}</p>
+                    </div>
+                  </div>
+                  <ChevronRight className={`w-6 h-6 ${item.textColor} opacity-60`} />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           {[
@@ -205,88 +257,22 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Main Actions */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
-          <Card 
-            className="bg-slate-800/50 border-slate-700 hover:border-blue-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10"
-            onClick={handleGoToChat}
-          >
-            <CardHeader>
-              <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4">
-                <MessageSquare className="w-6 h-6 text-blue-500" />
-              </div>
-              <CardTitle className="text-white">开始对话</CardTitle>
-              <CardDescription>
-                与你的AI助手进行流式对话交互
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" variant="outline">
-                打开聊天
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-purple-500/10"
-            onClick={() => router.push('/memory')}
-          >
-            <CardHeader>
-              <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-4">
-                <Brain className="w-6 h-6 text-purple-500" />
-              </div>
-              <CardTitle className="text-white">记忆管理</CardTitle>
-              <CardDescription>
-                查看和管理AI的长期记忆和日记
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" variant="outline">
-                查看记忆
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-yellow-500/10"
-            onClick={() => router.push('/heartbeat')}
-          >
-            <CardHeader>
-              <div className="w-12 h-12 rounded-lg bg-yellow-500/10 flex items-center justify-center mb-4">
-                <Activity className="w-6 h-6 text-yellow-500" />
-              </div>
-              <CardTitle className="text-white">心跳任务</CardTitle>
-              <CardDescription>
-                配置AI的主动检查任务和提醒
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" variant="outline">
-                管理任务
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
+        {/* Configuration Navigation */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Terminal className="w-5 h-5 text-slate-400" />
             快速操作
           </h2>
-          <div className="grid grid-cols-6 gap-4">
-            {quickActions.map((action, index) => (
+          <div className="grid grid-cols-4 gap-4">
+            {configNavItems.map((item, index) => (
               <Button 
                 key={index}
                 variant="outline" 
-                className="h-auto py-4 flex flex-col gap-2 border-slate-600 hover:border-slate-500"
-                onClick={() => router.push(action.path)}
+                className="h-auto py-4 flex flex-col gap-2 border-slate-600 hover:border-slate-500 hover:bg-slate-700/50"
+                onClick={() => router.push(item.path)}
               >
-                <action.icon className={`w-5 h-5 text-${action.color}-500`} />
-                <span>{action.label}</span>
+                <item.icon className={`w-5 h-5 ${item.color}`} />
+                <span className="text-slate-300">{item.label}</span>
               </Button>
             ))}
           </div>

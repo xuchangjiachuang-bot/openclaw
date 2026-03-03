@@ -328,3 +328,88 @@ export type WorkspaceFileType =
   | 'BOOTSTRAP.md'
   | 'MEMORY.md'
   | 'SKILL.md';
+
+// ==================== App Configuration ====================
+export interface AppConfig {
+  // LLM配置
+  llm: {
+    provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi';
+    model: string;
+    apiKey: string;
+    baseUrl?: string;
+    temperature: number;
+    maxTokens: number;
+  };
+  
+  // Gateway配置
+  gateway: {
+    port: number;
+    host: string;
+  };
+  
+  // 权限配置
+  permissions: {
+    allowFileSystem: boolean;
+    allowNetwork: boolean;
+    allowExecuteCode: boolean;
+    allowedDomains: string[];
+    sandboxMode: boolean;
+  };
+  
+  // 聊天软件配置
+  chat: {
+    enableMarkdown: boolean;
+    enableCodeHighlight: boolean;
+    enableVoiceInput: boolean;
+    enableFileUpload: boolean;
+    maxFileSize: number;
+    autoSaveHistory: boolean;
+    historyLimit: number;
+  };
+  
+  // 记忆配置
+  memory: {
+    enableLongTerm: boolean;
+    enableDiary: boolean;
+    maxMemories: number;
+    importanceThreshold: number;
+  };
+}
+
+// 默认配置
+export const defaultConfig: AppConfig = {
+  llm: {
+    provider: 'coze',
+    model: 'doubao-seed-1-6',
+    apiKey: '',
+    baseUrl: '',
+    temperature: 0.7,
+    maxTokens: 4096
+  },
+  gateway: {
+    port: 18789,
+    host: 'localhost'
+  },
+  permissions: {
+    allowFileSystem: true,
+    allowNetwork: true,
+    allowExecuteCode: false,
+    allowedDomains: ['*'],
+    sandboxMode: true
+  },
+  chat: {
+    enableMarkdown: true,
+    enableCodeHighlight: true,
+    enableVoiceInput: false,
+    enableFileUpload: true,
+    maxFileSize: 10,
+    autoSaveHistory: true,
+    historyLimit: 1000
+  },
+  memory: {
+    enableLongTerm: true,
+    enableDiary: true,
+    maxMemories: 10000,
+    importanceThreshold: 3
+  }
+};
