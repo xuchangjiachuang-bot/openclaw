@@ -81,6 +81,21 @@ export interface ToolResult {
   is_error?: boolean;
 }
 
+// OpenClaw Skill Tool格式（用于LLM调用）
+export interface SkillTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      properties: Record<string, any>;
+      required?: string[];
+    };
+  };
+}
+
+// 传统Tool格式（用于执行）
 export interface Tool {
   name: string;
   description: string;
@@ -133,9 +148,10 @@ export interface Skill {
   author: string;
   category: string;
   enabled: boolean;
-  skillMd: string; // SKILL.md content
+  skillMd?: string; // SKILL.md content
   tools?: Tool[];
   triggers?: SkillTrigger[];
+  metadata?: SkillMetadata;
 }
 
 export interface SkillTrigger {
@@ -153,6 +169,21 @@ export interface SkillMetadata {
   tags?: string[];
   dependencies?: string[];
   config?: SkillConfig[];
+  openclaw?: {
+    emoji?: string;
+    os?: string[];
+    primaryEnv?: string;
+    requires?: {
+      bins?: string[];
+      env?: string[];
+      config?: string[];
+    };
+    install?: Array<{
+      id: string;
+      kind: string;
+      formula?: string;
+    }>;
+  };
 }
 
 export interface SkillConfig {
@@ -238,7 +269,7 @@ export interface CanvasAction {
 
 export interface CanvasComponent {
   id: string;
-  type: 'button' | 'text' | 'image' | 'chart' | 'list' | 'custom';
+  type: 'button' | 'text' | 'image' | 'chart' | 'list' | 'card' | 'container' | 'form' | 'custom';
   props: Record<string, any>;
   children?: CanvasComponent[];
 }

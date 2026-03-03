@@ -1,6 +1,8 @@
 // OpenClaw Skills API - 技能管理接口
+// 支持ClawHub无缝下载、依赖检查、SKILL.md导入
+
 import { NextRequest, NextResponse } from 'next/server';
-import { skillManager } from '@/lib/openclaw/skills';
+import { skillManager, ClawHubClient } from '@/lib/openclaw/skills';
 import type { Skill } from '@/lib/openclaw/types';
 
 // GET /api/skills - 获取技能列表
@@ -9,6 +11,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'all';
     const category = searchParams.get('category');
+    const skillId = searchParams.get('id');
 
     // 确保技能已初始化
     await skillManager.initialize();
@@ -29,6 +32,99 @@ export async function GET(request: NextRequest) {
           categories
         });
 
+      case 'detail':
+        if (!skillId) {
+          return NextResponse.json(
+            { error: 'Skill ID is required' },
+            { status: 400 }
+          );
+        }
+        const skill = skillManager.getSkill(skillId);
+        if (!skill) {
+          return NextResponse.json(
+            { error: 'Skill not found' },
+            { status: 404 }
+          );
+        }
+        return NextResponse.json({
+          success: true,
+          skill
+        });
+
+      case 'hub':
+        // 获取ClawHub技能列表
+        try {
+          const hubSkills = await ClawHubClient.listSkills();
+          return NextResponse.json({
+            success: true,
+            skills: hubSkills
+          });
+        } catch (error) {
+          // ClawHub不可用，返回模拟数据
+          const mockHubSkills = [
+            {
+              slug: 'web-browsing',
+              name: 'Web Browsing',
+              description: 'Browse websites and extract information',
+              category: 'Automation',
+              installs: 1250,
+              verified: true,
+              featured: true
+            },
+            {
+              slug: 'terminal',
+              name: 'Terminal',
+              description: 'Execute terminal commands safely',
+              category: 'System',
+              installs: 980,
+              verified: true,
+              featured: true
+            },
+            {
+              slug: 'memory-enhanced',
+              name: 'Memory Enhanced',
+              description: 'Advanced memory management with vector search',
+              category: 'Memory',
+              installs: 650,
+              verified: true
+            },
+            {
+              slug: 'api-client',
+              name: 'API Client',
+              description: 'Make HTTP requests to external APIs',
+              category: 'Integration',
+              installs: 520,
+              verified: true
+            },
+            {
+              slug: 'data-analysis',
+              name: 'Data Analysis',
+              description: 'Analyze and visualize data',
+              category: 'Analysis',
+              installs: 430,
+              verified: false
+            }
+          ];
+          return NextResponse.json({
+            success: true,
+            skills: mockHubSkills,
+            note: 'Using mock data - ClawHub not available'
+          });
+        }
+
+      case 'dependencies':
+        if (!skillId) {
+          return NextResponse.json(
+            { error: 'Skill ID is required' },
+            { status: 400 }
+          );
+        }
+        const depResult = await skillManager.checkDependencies(skillId);
+        return NextResponse.json({
+          success: true,
+          ...depResult
+        });
+
       default:
         let skills = skillManager.getAllSkills();
         
@@ -38,10 +134,12 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          skills
+          skills,
+          count: skills.length
         });
     }
   } catch (error) {
+    console.error('Skills API error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get skills' },
       { status: 500 }
@@ -53,7 +151,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, skillId, skill, skillMd } = body;
+    const { action, skillId, skill, skillMd, slug } = body;
 
     await skillManager.initialize();
 
@@ -110,6 +208,34 @@ export async function POST(request: NextRequest) {
           skill: importedSkill
         });
 
+      case 'download':
+        // 从ClawHub下载技能
+        if (!slug) {
+          return NextResponse.json(
+            { error: 'Skill slug is required' },
+            { status: 400 }
+          );
+        }
+        const downloadResult = await skillManager.downloadFromClawHub(slug);
+        return NextResponse.json({
+          success: downloadResult.success,
+          message: downloadResult.message,
+          skill: downloadResult.skill
+        });
+
+      case 'check-deps':
+        if (!skillId) {
+          return NextResponse.json(
+            { error: 'Skill ID is required' },
+            { status: 400 }
+          );
+        }
+        const checkResult = await skillManager.checkDependencies(skillId);
+        return NextResponse.json({
+          success: true,
+          ...checkResult
+        });
+
       default:
         return NextResponse.json(
           { error: 'Invalid action' },
@@ -117,6 +243,7 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
+    console.error('Skills API error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to manage skill' },
       { status: 500 }
@@ -145,6 +272,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Skill removed'
     });
   } catch (error) {
+    console.error('Skills API error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to remove skill' },
       { status: 500 }
