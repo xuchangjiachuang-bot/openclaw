@@ -9,7 +9,6 @@ export { OpenClawAgent, createAgent } from './agent';
 export { MemoryManager, LocalMemoryStore, memoryManager } from './memory';
 export { 
   SkillRegistry, 
-  ClawHubClient, 
   SkillDependencyChecker,
   SkillTriggerEngine,
   skillManager,
@@ -19,7 +18,7 @@ export {
   BUILTIN_SKILLS,
   SKILL_STORAGE_PRIORITIES
 } from './skills';
-export type { ClawHubSkill } from './skills';
+// 注意: ClawHubClient和ClawHubSkill现在从./clawhub导入，不再从./skills导入
 export { Gateway, gateway, DEFAULT_GATEWAY_CONFIG } from './gateway';
 export type { GatewayStatus, MessageHandler } from './gateway';
 export { ChannelManager, channelManager, CHANNEL_TEMPLATES } from './channel';
@@ -62,6 +61,47 @@ export type {
   ConnectionHandler,
   UseGatewayOptions
 } from './gateway-client';
+
+// 代码沙箱
+export { 
+  CodeSandbox, 
+  getSandbox, 
+  executePython, 
+  executeJavaScript, 
+  executeBash,
+  extractCodeBlocks 
+} from './sandbox';
+export type { 
+  SandboxConfig, 
+  ExecutionResult, 
+  CodeBlock 
+} from './sandbox';
+
+// ClawHub技能市场
+export { ClawHubClient, clawHubClient } from './clawhub';
+export type {
+  ClawHubSkill,
+  ClawHubSearchResult,
+  ClawHubCategory,
+  InstallProgress
+} from './clawhub';
+
+// 消息队列
+export { 
+  QueueManager, 
+  queueManager,
+  messageQueue,
+  skillQueue,
+  webhookQueue,
+  cronQueue
+} from './queue';
+export type {
+  QueueMessage,
+  QueuePriority,
+  QueueConfig,
+  QueueStats,
+  MessageHandler as QueueMessageHandler
+} from './queue';
 
 // 版本信息
 export const OPENCLAW_VERSION = '1.0.0';

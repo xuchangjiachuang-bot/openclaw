@@ -2,9 +2,9 @@
 // 提供文件系统操作、代码执行等能力
 
 import type { Tool, ToolResult, SkillTool } from './types';
-import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { CodeSandbox, getSandbox, type CodeBlock } from './sandbox';
 
 // 权限检查器
 export class PermissionChecker {
@@ -241,48 +241,51 @@ export const fileSearchTool: Tool = {
 
 export const codeExecuteTool: Tool = {
   name: 'code_execute',
-  description: 'Execute code or shell commands.',
+  description: 'Execute code or shell commands in a sandboxed environment.',
   input_schema: {
     type: 'object',
     properties: {
       code: { type: 'string', description: 'The code or command to execute' },
-      language: { type: 'string', description: 'Language/runtime to use', enum: ['bash', 'python', 'node', 'js'] },
+      language: { type: 'string', description: 'Language/runtime to use', enum: ['bash', 'shell', 'python', 'javascript', 'typescript', 'node', 'js'] },
       timeout: { type: 'number', description: 'Timeout in seconds (default: 30)' },
       cwd: { type: 'string', description: 'Working directory for execution' }
     },
     required: ['code', 'language']
   },
   execute: async (input: Record<string, any>) => {
-    const timeout = (input.timeout || 30) * 1000;
-    const cwd = input.cwd || process.cwd();
+    try {
+      const sandbox = getSandbox();
+      
+      // 标准化语言名称
+      let language = input.language.toLowerCase();
+      if (language === 'js') language = 'javascript';
+      if (language === 'node') language = 'javascript';
+      if (language === 'sh') language = 'bash';
+      
+      const codeBlock: CodeBlock = {
+        language: language as CodeBlock['language'],
+        code: input.code
+      };
 
-    return new Promise((resolve) => {
-      let command: string;
+      const result = await sandbox.execute(codeBlock);
 
-      switch (input.language) {
-        case 'python':
-          command = `python3 -c '${input.code.replace(/'/g, "'\\''")}'`;
-          break;
-        case 'node':
-        case 'js':
-          command = `node -e '${input.code.replace(/'/g, "'\\''")}'`;
-          break;
-        case 'bash':
-        default:
-          command = input.code;
-          break;
-      }
-
-      exec(command, { cwd, timeout }, (error, stdout, stderr) => {
-        resolve({
-          success: !error,
-          stdout: stdout.toString(),
-          stderr: stderr.toString(),
-          error: error?.message,
-          exitCode: error?.code || 0
-        });
-      });
-    });
+      return {
+        success: result.success,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+        timedOut: result.timedOut,
+        duration: result.duration,
+        error: result.error
+      };
+    } catch (error) {
+      return {
+        success: false,
+        stdout: '',
+        stderr: '',
+        error: error instanceof Error ? error.message : 'Execution failed'
+      };
+    }
   }
 };
 
