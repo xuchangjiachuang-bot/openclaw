@@ -1,10 +1,10 @@
 // OpenClaw 多Provider LLM客户端工厂
-// 支持：OpenAI、Anthropic、DeepSeek、Kimi、Coze、OpenAI-Codex
+// 支持：OpenAI、Anthropic、DeepSeek、Kimi、Coze(豆包)、Qwen(阿里云)、OpenAI-Codex
 
 import type { Message, LLMConfig, ToolUse, SkillTool } from './types';
 
 // Provider类型
-export type LLMProvider = 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'coze' | 'openai-codex';
+export type LLMProvider = 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'coze' | 'qwen' | 'openai-codex';
 
 // Provider配置
 export interface ProviderConfig {
@@ -56,18 +56,27 @@ export const PROVIDERS: Record<LLMProvider, ProviderConfig> = {
     supportsStreaming: true
   },
   'coze': {
-    name: 'Coze (ByteDance)',
-    baseUrl: 'https://api.coze.com/v1',
+    name: 'Coze / 豆包 (ByteDance)',
+    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     apiKeyEnv: 'COZE_API_KEY',
-    models: ['doubao-seed-1-6', 'doubao-pro-32k', 'doubao-lite-4k'],
+    models: ['doubao-seed-1-6', 'doubao-pro-32k', 'doubao-lite-4k', 'doubao-seed-1-8-251228'],
+    supportsTools: true,
+    supportsVision: true,
+    supportsStreaming: true
+  },
+  'qwen': {
+    name: 'Qwen / 通义千问 (阿里云)',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    apiKeyEnv: 'QWEN_API_KEY',
+    models: ['qwen-turbo', 'qwen-plus', 'qwen-max', 'qwen-max-longcontext', 'qwen-vl-plus', 'qwen-vl-max'],
     supportsTools: true,
     supportsVision: true,
     supportsStreaming: true
   },
   'openai-codex': {
     name: 'OpenAI Code (Codex Subscription)',
-    baseUrl: 'https://codex.openai.com/v1', // Codex专用端点
-    apiKeyEnv: 'OPENAI_CODEX_TOKEN', // OAuth token
+    baseUrl: 'https://codex.openai.com/v1',
+    apiKeyEnv: 'OPENAI_CODEX_TOKEN',
     models: ['gpt-4o', 'gpt-4-turbo', 'o1', 'o1-mini'],
     supportsTools: true,
     supportsVision: true,

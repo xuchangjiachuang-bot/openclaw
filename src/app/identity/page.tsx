@@ -88,8 +88,10 @@ export default function IdentityPage() {
       const data = await response.json();
       if (data.success) {
         setIsInitialized(true);
-        // 显示成功提示
-        alert('身份保存成功！');
+        // 保存成功后自动跳转到聊天页面
+        setTimeout(() => {
+          router.push('/chat');
+        }, 500);
       }
     } catch (error) {
       console.error('Failed to save identity:', error);

@@ -5,7 +5,7 @@ import path from 'path';
 export interface AppConfig {
   // LLM配置
   llm: {
-    provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'openai-codex';
+    provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'qwen' | 'openai-codex';
     model: string;
     apiKey: string;
     baseUrl?: string;
@@ -179,18 +179,31 @@ class ConfigManager {
     return this.config.chat;
   }
   
-  // 获取API Key（优先从环境变量读取）
+  // 获取API Key（优先从配置文件读取，其次从环境变量）
   getApiKey(): string {
-    // 服务端优先读取环境变量
+    // 首先检查配置文件中的API Key
+    if (this.config.llm.apiKey) {
+      return this.config.llm.apiKey;
+    }
+    
+    // 服务端尝试读取环境变量
     if (isServer) {
-      const envKey = process.env.COZE_API_KEY || 
-                     process.env.OPENAI_API_KEY || 
-                     process.env.ANTHROPIC_API_KEY || 
-                     process.env.DEEPSEEK_API_KEY || 
-                     process.env.KIMI_API_KEY;
+      const provider = this.config.llm.provider;
+      const envKeyMap: Record<string, string | undefined> = {
+        'coze': process.env.COZE_API_KEY,
+        'openai': process.env.OPENAI_API_KEY,
+        'anthropic': process.env.ANTHROPIC_API_KEY,
+        'deepseek': process.env.DEEPSEEK_API_KEY,
+        'kimi': process.env.KIMI_API_KEY,
+        'qwen': process.env.QWEN_API_KEY,
+        'openai-codex': process.env.OPENAI_CODEX_TOKEN
+      };
+      
+      const envKey = envKeyMap[provider];
       if (envKey) return envKey;
     }
-    return this.config.llm.apiKey || '';
+    
+    return '';
   }
   
   // 更新LLM配置

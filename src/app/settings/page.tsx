@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 interface LLMConfig {
-  provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'openai-codex';
+  provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'qwen' | 'openai-codex';
   model: string;
   apiKey: string;
   baseUrl: string;
@@ -62,20 +62,22 @@ interface ChatConfig {
 }
 
 const PROVIDER_MODELS: Record<string, string[]> = {
-  coze: ['doubao-seed-1-6', 'doubao-pro-32k', 'doubao-lite-4k'],
+  coze: ['doubao-seed-1-6', 'doubao-pro-32k', 'doubao-lite-4k', 'doubao-seed-1-8-251228'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo', 'o1', 'o1-mini'],
   anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku'],
   deepseek: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
   kimi: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+  qwen: ['qwen-turbo', 'qwen-plus', 'qwen-max', 'qwen-max-longcontext', 'qwen-vl-plus', 'qwen-vl-max'],
   'openai-codex': ['gpt-4o', 'gpt-4-turbo', 'o1', 'o1-mini'] // Codex订阅模型
 };
 
 const PROVIDER_NAMES: Record<string, string> = {
-  coze: 'Coze (ByteDance)',
+  coze: 'Coze / 豆包 (字节跳动)',
   openai: 'OpenAI API',
   anthropic: 'Anthropic',
   deepseek: 'DeepSeek',
-  kimi: 'Kimi (Moonshot)',
+  kimi: 'Kimi (月之暗面)',
+  qwen: 'Qwen / 通义千问 (阿里云)',
   'openai-codex': 'OpenAI Code (Codex订阅)'
 };
 
@@ -382,7 +384,8 @@ export default function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="coze">Coze (豆包) - 推荐</SelectItem>
+                        <SelectItem value="coze">Coze / 豆包 (字节跳动) - 推荐</SelectItem>
+                        <SelectItem value="qwen">Qwen / 通义千问 (阿里云)</SelectItem>
                         <SelectItem value="openai">OpenAI API</SelectItem>
                         <SelectItem value="openai-codex">OpenAI Code (Codex订阅)</SelectItem>
                         <SelectItem value="anthropic">Anthropic</SelectItem>

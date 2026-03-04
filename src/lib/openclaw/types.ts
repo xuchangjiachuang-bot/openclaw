@@ -364,12 +364,13 @@ export type WorkspaceFileType =
 export interface AppConfig {
   // LLM配置
   llm: {
-    provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi';
+    provider: 'coze' | 'openai' | 'anthropic' | 'deepseek' | 'kimi' | 'qwen' | 'openai-codex';
     model: string;
     apiKey: string;
     baseUrl?: string;
     temperature: number;
     maxTokens: number;
+    codexToken?: string; // For OpenAI Codex OAuth
   };
   
   // Gateway配置
